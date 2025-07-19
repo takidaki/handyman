@@ -11,6 +11,7 @@ const APP_SHELL_URLS = [
   '/constants.tsx',
   '/services/geminiService.ts',
   '/hooks/useFavorites.ts',
+  '/components/common/PwaInstallBanner.tsx',
   '/components/common/Spinner.tsx',
   '/components/common/Card.tsx',
   '/components/Header.tsx',
@@ -39,25 +40,30 @@ self.addEventListener('install', (event) => {
   );
 });
 
-// On fetch, use a cache-first strategy
+// On fetch, use a network-first strategy for API calls, and cache-first for everything else.
 self.addEventListener('fetch', (event) => {
-  // Always go to network for Gemini API calls
-  if (event.request.url.includes('googleapis.com')) {
+  const requestUrl = new URL(event.request.url);
+
+  // Always go to the network for API calls to our serverless function.
+  // This ensures we always get fresh data and don't cache API responses.
+  if (requestUrl.pathname.startsWith('/.netlify/functions/')) {
     return event.respondWith(fetch(event.request));
   }
 
+  // For all other requests (app shell, static assets), use a cache-first strategy.
   event.respondWith(
     caches.match(event.request)
       .then((response) => {
-        // Return cached response if found
+        // If we have a match in the cache, return it.
         if (response) {
           return response;
         }
-        // Otherwise, fetch from network
+        // If no match, fetch from the network.
         return fetch(event.request);
       })
   );
 });
+
 
 // On activate, remove old caches to free up space
 self.addEventListener('activate', (event) => {
