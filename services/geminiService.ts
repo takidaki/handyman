@@ -1,71 +1,67 @@
 
-import { GoogleGenAI } from "@google/genai";
-import type { GenerateContentResponse } from "@google/genai";
-
-const API_KEY = process.env.API_KEY;
-
-if (!API_KEY) {
-  throw new Error("API_KEY environment variable not set");
-}
-
-const ai = new GoogleGenAI({ apiKey: API_KEY });
-const model = 'gemini-2.5-flash';
-
-const SYSTEM_INSTRUCTION = "You are a friendly and practical DIY and home repair assistant named 'DIY Pro'. Provide clear, step-by-step instructions. Prioritize safety and suggest when to call a professional. Format your answers with clear headings (using **bold text**), bullet points (using *), and numbered lists where appropriate. Keep responses concise and easy to understand for beginners.";
-
-// Helper function to convert a File object to a GoogleGenerativeAI.Part
-async function fileToGenerativePart(file: File) {
-  const base64EncodedDataPromise = new Promise<string>((resolve) => {
+// Helper function to convert a File object to a base64 string
+async function convertFileToBase64(file: File): Promise<{ base64: string; mimeType: string }> {
+  return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onloadend = () => {
       if (typeof reader.result === 'string') {
-        resolve(reader.result.split(',')[1]);
+        // The result includes a data URL prefix (e.g., "data:image/jpeg;base64,"),
+        // so we split it off to get just the base64-encoded data.
+        const base64 = reader.result.split(',')[1];
+        resolve({ base64, mimeType: file.type });
+      } else {
+        reject(new Error("Failed to read file as a base64 string."));
       }
     };
+    reader.onerror = (error) => reject(error);
     reader.readAsDataURL(file);
   });
-  const base64EncodedData = await base64EncodedDataPromise;
-  return {
-    inlineData: {
-      data: base64EncodedData,
-      mimeType: file.type,
-    },
-  };
 }
 
+const API_ENDPOINT = '/.netlify/functions/gemini';
 
 export const getAdviceForText = async (prompt: string): Promise<string> => {
   try {
-    const response: GenerateContentResponse = await ai.models.generateContent({
-        model: model,
-        contents: prompt,
-        config: {
-            systemInstruction: SYSTEM_INSTRUCTION
-        }
+    const response = await fetch(API_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt }),
     });
-    return response.text;
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || 'An unknown error occurred while fetching advice.');
+    }
+    
+    return data.advice;
   } catch (error) {
-    console.error("Error generating text response:", error);
-    return "Sorry, I couldn't get advice for that. Please try again.";
+    console.error("Error getting text advice:", error);
+    return `Sorry, I couldn't get advice for that. Please try again. (${error instanceof Error ? error.message : 'Unknown reason'})`;
   }
 };
 
 export const getAdviceForImage = async (prompt: string, image: File): Promise<string> => {
   try {
-    const imagePart = await fileToGenerativePart(image);
-    const textPart = { text: prompt };
+    const { base64, mimeType } = await convertFileToBase64(image);
     
-    const response: GenerateContentResponse = await ai.models.generateContent({
-        model: model,
-        contents: { parts: [textPart, imagePart] },
-        config: {
-            systemInstruction: SYSTEM_INSTRUCTION
-        }
+    const response = await fetch(API_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        prompt,
+        image: base64,
+        mimeType,
+      }),
     });
 
-    return response.text;
+    const data = await response.json();
+    if (!response.ok) {
+        throw new Error(data.error || 'An unknown error occurred while analyzing the image.');
+    }
+
+    return data.advice;
   } catch (error) {
-    console.error("Error generating image response:", error);
-    return "Sorry, I had trouble analyzing the image. Please try again.";
+    console.error("Error getting image advice:", error);
+    return `Sorry, I had trouble analyzing the image. Please try again. (${error instanceof Error ? error.message : 'Unknown reason'})`;
   }
 };
