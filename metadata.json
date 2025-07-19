@@ -1,0 +1,7 @@
+{
+  "name": "DIY Pro Assistant",
+  "description": "A practical DIY and home repair assistant that provides tips based on user text and photo inputs. Browse guides and save your favorite tips for later.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}

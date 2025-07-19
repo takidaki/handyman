@@ -1,0 +1,16 @@
+{
+  "short_name": "DIY Pro",
+  "name": "DIY Pro Assistant",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "type": "image/svg+xml",
+      "sizes": "192x192 512x512"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#2f4f4f",
+  "background_color": "#f5ede6",
+  "description": "A practical DIY and home repair assistant that provides tips based on user text and photo inputs. Browse guides and save your favorite tips for later."
+}
